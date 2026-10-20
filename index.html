@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="復習カレンダー">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>復習カレンダー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 方眼ノート風。上に月カレンダー、下に選択日の「復習」と「勉強記録」 */
+:root{
+  --bg:#F3F6F5; --paper:#FFFFFF; --ink:#1C2E3D; --muted:#5E6F7A; --line:#D6DFDD; --grid:#E6ECEA;
+  --accent:#1F5E8C; --accent-soft:#E2EDF5; --review:#B9740C; --review-soft:#FBEFD8; --done:#3C7D55; --danger:#B33A3A;
+  --f-display:"Zen Old Mincho","Hiragino Mincho ProN",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121A20; --paper:#1A242C; --ink:#E4EBEF; --muted:#93A3AD; --line:#2E3C46; --grid:#222E37;
+  --accent:#7DB3DD; --accent-soft:#1E3344; --review:#E9AE4F; --review-soft:#3A2C14; --done:#7CC59A; --danger:#E58080; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121A20; --paper:#1A242C; --ink:#E4EBEF; --muted:#93A3AD; --line:#2E3C46; --grid:#222E37;
+  --accent:#7DB3DD; --accent-soft:#1E3344; --review:#E9AE4F; --review-soft:#3A2C14; --done:#7CC59A; --danger:#E58080; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-direction:column;gap:4px}
+h1{font-family:var(--f-display);font-size:26px;margin:0;letter-spacing:.04em;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.ivl{font-family:var(--f-mono);color:var(--review)}
+.banner{background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:6px 12px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--paper);font-weight:700}
+button.small{font-size:12px;padding:3px 9px}
+button.danger{color:var(--danger);border-color:var(--danger)}
+.cal{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.calhead h2{font-family:var(--f-display);font-size:19px;margin:0}
+.calhead .nav{display:flex;gap:6px}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--grid);border:1px solid var(--grid)}
+.dow{background:var(--paper);text-align:center;font-size:11px;color:var(--muted);padding:4px 0;letter-spacing:.08em}
+.dow.sun{color:var(--danger)} .dow.sat{color:var(--accent)}
+.cell{background:var(--paper);min-height:58px;padding:4px;border:0;border-radius:0;display:flex;flex-direction:column;align-items:stretch;gap:2px;text-align:left}
+.cell.out{opacity:.35}
+.cell .num{font-family:var(--f-mono);font-size:12px}
+.cell.today .num{background:var(--ink);color:var(--paper);border-radius:4px;padding:0 4px;align-self:flex-start}
+.cell.sel{outline:2px solid var(--accent);outline-offset:-2px;position:relative;z-index:1}
+.chip{font-size:10px;line-height:1.4;border-radius:3px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.new{background:var(--accent-soft);color:var(--accent)}
+.chip.rev{background:var(--review-soft);color:var(--review)}
+.chip.rev.all{background:transparent;color:var(--done)}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:16px}
+.panel h2{font-family:var(--f-display);font-size:20px;margin:0}
+h3{font-size:13px;letter-spacing:.1em;color:var(--muted);margin:0 0 6px;font-weight:700}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:8px}
+.item.rev{border-left:4px solid var(--review)}
+.item.rev.isdone{border-left-color:var(--done);opacity:.6}
+.item.rev.isdone .txt{text-decoration:line-through}
+.item.rev.isng{border-left-color:var(--danger)}
+.acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.acts button.ok{background:var(--done);border-color:var(--done);color:var(--paper);font-weight:700;padding:9px 18px}
+.acts button.ng{color:var(--danger);border-color:var(--danger);font-weight:700;padding:9px 18px}
+.res{font-size:13px;font-weight:700}
+.res.ok{color:var(--done)} .res.ng{color:var(--danger)}
+.item input[type=checkbox]{width:22px;height:22px;margin:2px 0 0;accent-color:var(--done)}
+.subj{font-weight:700;font-size:14px}
+.txt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.meta{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 6px;background:var(--review-soft);color:var(--review);margin-right:6px}
+.badge.late{background:var(--danger);color:var(--paper)}
+.empty{color:var(--muted);font-size:13px;margin:0}
+form{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:14px}
+label{font-size:12px;color:var(--muted);font-weight:700}
+input[type=text],textarea{font:inherit;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+textarea{min-height:72px;resize:vertical}
+.subjbtns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.subjbtns button{padding:10px 0;font-weight:700;font-size:15px}
+.subjbtns button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.page{display:inline-block;font-family:var(--f-mono);font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:0 6px;margin-top:2px}
+.pagerow{display:flex;align-items:center;gap:6px}
+.pagerow input{max-width:160px}
+.preview{font-size:12px;color:var(--review);font-family:var(--f-mono)}
+details{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+summary{cursor:pointer;font-weight:700}
+.set{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:12px;color:var(--muted);margin:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:20px;font-size:13px}
+@media (prefers-reduced-motion:no-preference){.cell{transition:background .15s}}
+@media (min-width:560px){.cell{min-height:72px}.chip{font-size:11px}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>復習カレンダー</h1>
+    <p class="sub">勉強した日に記録すると、<span class="ivl" id="ivlLabel">1・3・7・14・30・50</span>日後に復習が自動で入ります。</p>
+  </header>
+
+  <div class="banner" id="sampleBanner" hidden>
+    <span>表示中の記録はサンプルです。</span>
+    <button class="small" id="clearSample">サンプルを消して始める</button>
+  </div>
+
+  <section class="panel" id="overdueBox" hidden>
+    <div>
+      <h3>やり残しの復習</h3>
+      <ul id="overdueList"></ul>
+    </div>
+  </section>
+
+  <section class="cal">
+    <div class="calhead">
+      <h2 id="monthTitle"></h2>
+      <div class="nav">
+        <button class="small" id="prev" aria-label="前の月">‹</button>
+        <button class="small" id="todayBtn">今日</button>
+        <button class="small" id="next" aria-label="次の月">›</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="legend"><span><span class="chip new">勉</span> その日の勉強</span><span><span class="chip rev">復</span> 復習（残り件数）</span><span><span class="chip rev all">✓</span> 復習完了</span></div>
+  </section>
+
+  <section class="panel">
+    <h2 id="dayTitle"></h2>
+    <div>
+      <h3>この日の復習</h3>
+      <ul id="revList"></ul>
+    </div>
+    <div>
+      <h3>この日の勉強</h3>
+      <ul id="studyList"></ul>
+    </div>
+    <form id="addForm">
+      <label for="subj">科目</label>
+      <div class="subjbtns" id="subjBtns">
+        <button type="button" data-s="数学" aria-pressed="false">数学</button>
+        <button type="button" data-s="国語" aria-pressed="false">国語</button>
+        <button type="button" data-s="社会" aria-pressed="false">社会</button>
+        <button type="button" data-s="理科" aria-pressed="false">理科</button>
+      </div>
+      <input type="text" id="subj" list="subjList" placeholder="ほかの科目は入力（例：英語）" autocomplete="off">
+      <datalist id="subjList"></datalist>
+      <label for="content">勉強した内容</label>
+      <textarea id="content" placeholder="例：二次関数の最大・最小"></textarea>
+      <label for="pages">問題集のページ</label>
+      <div class="pagerow"><span>p.</span><input type="text" id="pages" inputmode="numeric" placeholder="例：24-31" autocomplete="off"></div>
+      <div class="preview" id="preview"></div>
+      <button class="primary" type="submit">この日に記録する</button>
+    </form>
+  </section>
+
+  <details>
+    <summary>設定とバックアップ</summary>
+    <div class="set">
+      <label for="ivlInput">復習の間隔（日数をカンマ区切り）</label>
+      <div class="row">
+        <input type="text" id="ivlInput" style="max-width:180px">
+        <button class="small" id="saveIvl">保存</button>
+      </div>
+      <p class="note">変更はこれから記録する分にだけ反映されます。記録済みの分は登録時の間隔のままです。</p>
+      <label for="backup">バックアップ</label>
+      <textarea id="backup" placeholder="「書き出す」を押すとここにデータが出ます。復元するときはここに貼り付けて「読み込む」。"></textarea>
+      <div class="row">
+        <button class="small" id="exportBtn">書き出してコピー</button>
+        <button class="small" id="importBtn">読み込む</button>
+      </div>
+      <p class="note">記録はこの端末のこのブラウザだけに保存されます。履歴やサイトデータを消すと記録も消えるので、ときどき書き出してメモアプリ等に保存してください。</p>
+    </div>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const KEY='fukushu-cal-v1';
+const pad=n=>String(n).padStart(2,'0');
+const toKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return toKey(d)};
+const WD=['日','月','火','水','木','金','土'];
+const fmt=s=>{const d=parse(s);return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const TODAY=toKey(new Date());
+
+let state=load();
+let sel=TODAY;
+let view=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}})();
+
+function mkReviews(base,ints,src){return ints.map(n=>Object.assign({id:uid(),due:addDays(base,n),n,st:null},src?{src}:{}))}
+function migrate(it){
+  if(!Array.isArray(it.intervals))it.intervals=[3,5,10];
+  if(!Array.isArray(it.reviews)){const d=it.done||{};it.reviews=it.intervals.map(n=>({id:uid(),due:addDays(it.date,n),n,st:d[n]?'ok':null}));}
+  delete it.done;return it;
+}
+function judge(it,r,ok){
+  if(ok){r.st='ok';return;}
+  r.st='ng';
+  it.reviews.forEach(x=>{if(x!==r&&x.st===null){x.st='skip';x.by=r.id}});
+  it.reviews.push(...mkReviews(TODAY,it.intervals,r.id));
+}
+function undo(it,r){
+  if(r.st==='ng'){
+    it.reviews.filter(x=>x.src===r.id&&x.st==='ng').forEach(x=>undo(it,x));
+    it.reviews=it.reviews.filter(x=>x.src!==r.id);
+    it.reviews.forEach(x=>{if(x.by===r.id){x.st=null;delete x.by}});
+  }
+  r.st=null;
+}
+function sample(){
+  const mk=(off,subject,text,pages)=>migrate({id:uid(),date:addDays(TODAY,-off),subject,text,pages,intervals:[1,3,7,14,30,50],sample:true});
+  return {intervals:[1,3,7,14,30,50],items:[
+    mk(10,'理科','電流と電圧 オームの法則','12-15'),
+    mk(5,'国語','古文 助動詞「けり」「き」','40-43'),
+    mk(3,'数学','二次関数の最大・最小','24-31'),
+    mk(1,'社会','鎌倉幕府の成立と執権政治','56-59'),
+  ]};
+}
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.items)){s.items.forEach(migrate);if(!Array.isArray(s.intervals))s.intervals=[3,5,10];return s;}}}catch(e){}
+  return sample();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('この環境では保存できません');}}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2000)}
+
+function reviewsOn(k){
+  const out=[];
+  state.items.forEach(it=>it.reviews.forEach(r=>{if(r.due===k&&r.st!=='skip')out.push({it,r})}));
+  return out;
+}
+function overdue(){
+  const out=[];
+  state.items.forEach(it=>it.reviews.forEach(r=>{if(r.due<TODAY&&r.st===null)out.push({it,r})}));
+  return out.sort((a,b)=>a.r.due<b.r.due?-1:1);
+}
+const pg=it=>it.pages?`<div><span class="page">p.${esc(it.pages)}</span></div>`:'';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function revItem({it,r},showDue){
+  const st=r.st;
+  const late=showDue?`<span class="badge late">${fmt(r.due)}予定</span>`:'';
+  const tag=r.src?`やり直し ${r.n}日後`:`${r.n}日後`;
+  return `<li class="item rev ${st==='ok'?'isdone':''}">
+    <input type="checkbox" data-id="${it.id}" data-r="${r.id}" ${st==='ok'?'checked':''} aria-label="復習済みにする">
+    <div><div>${late}<span class="badge">${tag}</span><span class="subj">${esc(it.subject||'（科目なし）')}</span></div>
+    <div class="txt">${esc(it.text)}</div>${pg(it)}<div class="meta">${fmt(it.date)}に勉強</div></div><span></span></li>`;
+}
+
+function render(){
+  document.getElementById('ivlLabel').textContent=state.intervals.join('・');
+  document.getElementById('ivlInput').value=state.intervals.join(',');
+  document.getElementById('sampleBanner').hidden=!state.items.some(i=>i.sample);
+  // overdue
+  const od=overdue();const ob=document.getElementById('overdueBox');ob.hidden=!od.length;
+  document.getElementById('overdueList').innerHTML=od.map(r=>revItem(r,true)).join('');
+  // calendar
+  document.getElementById('monthTitle').textContent=`${view.y}年${view.m+1}月`;
+  const first=new Date(view.y,view.m,1);const start=new Date(view.y,view.m,1-first.getDay());
+  const last=new Date(view.y,view.m+1,0);const cells=Math.ceil((first.getDay()+last.getDate())/7)*7;
+  let h=WD.map((w,i)=>`<div class="dow ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join('');
+  for(let i=0;i<cells;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);const k=toKey(d);
+    const studies=state.items.filter(it=>it.date===k).length;
+    const revs=reviewsOn(k);const left=revs.filter(x=>x.r.st===null).length;
+    let chips='';
+    if(studies)chips+=`<span class="chip new">勉 ${studies}</span>`;
+    if(revs.length)chips+=left?`<span class="chip rev">復 ${left}</span>`:`<span class="chip rev all">✓ 復習</span>`;
+    h+=`<button class="cell ${d.getMonth()!==view.m?'out':''} ${k===TODAY?'today':''} ${k===sel?'sel':''}" data-k="${k}" aria-label="${fmt(k)}"><span class="num">${d.getDate()}</span>${chips}</button>`;
+  }
+  document.getElementById('grid').innerHTML=h;
+  // day panel
+  document.getElementById('dayTitle').textContent=`${fmt(sel)}${sel===TODAY?' 今日':''}`;
+  const revs=reviewsOn(sel);
+  document.getElementById('revList').innerHTML=revs.length?revs.map(r=>revItem(r,false)).join(''):'<p class="empty">この日の復習はありません。</p>';
+  const st=state.items.filter(it=>it.date===sel);
+  document.getElementById('studyList').innerHTML=st.length?st.map(it=>`<li class="item">
+    <span></span><div><div class="subj">${esc(it.subject||'（科目なし）')}</div><div class="txt">${esc(it.text)}</div>${pg(it)}
+    <div class="meta">復習：${it.reviews.filter(x=>x.st!=='skip').map(x=>fmt(x.due)+(x.st==='ok'?'✓':x.st==='ng'?'✗':'')).join(' / ')}${(c=>c?`（やり直し${c}回）`:'')(it.reviews.filter(x=>x.st==='ng').length)}</div></div>
+    <button class="small danger" data-del="${it.id}">削除</button></li>`).join(''):'<p class="empty">まだ記録がありません。下のフォームから追加できます。</p>';
+  const subs=[...new Set(state.items.map(i=>i.subject).filter(Boolean))];
+  document.getElementById('subjList').innerHTML=subs.map(s=>`<option value="${esc(s)}">`).join('');
+  updatePreview();syncSubj();
+}
+function syncSubj(){
+  const v=document.getElementById('subj').value.trim();
+  document.querySelectorAll('#subjBtns button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===v?'true':'false'));
+}
+document.getElementById('subjBtns').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-s]');if(!b)return;
+  document.getElementById('subj').value=b.dataset.s;syncSubj();
+});
+document.getElementById('subj').addEventListener('input',syncSubj);
+function updatePreview(){
+  document.getElementById('preview').textContent='復習日 → '+state.intervals.map(n=>fmt(addDays(sel,n))).join('、');
+}
+
+document.addEventListener('click',e=>{
+  const c=e.target.closest('.cell');
+  if(c){sel=c.dataset.k;const d=parse(sel);if(d.getMonth()!==view.m){view={y:d.getFullYear(),m:d.getMonth()}}render();return;}
+  const del=e.target.closest('[data-del]');
+  if(del){
+    if(del.dataset.arm!=='1'){del.dataset.arm='1';del.textContent='本当に削除';setTimeout(()=>{if(del.isConnected){del.dataset.arm='';del.textContent='削除'}},3000);return;}
+    state.items=state.items.filter(i=>i.id!==del.dataset.del);save();render();toast('削除しました');
+  }
+});
+document.addEventListener('change',e=>{
+  const cb=e.target;if(cb.type!=='checkbox'||!cb.dataset.r)return;
+  const it=state.items.find(i=>i.id===cb.dataset.id);const r=it&&it.reviews.find(x=>x.id===cb.dataset.r);if(!r)return;
+  if(cb.checked)r.st='ok';else if(r.st==='ok')r.st=null;
+  save();render();
+});
+document.getElementById('prev').onclick=()=>{view.m--;if(view.m<0){view.m=11;view.y--}render()};
+document.getElementById('next').onclick=()=>{view.m++;if(view.m>11){view.m=0;view.y++}render()};
+document.getElementById('todayBtn').onclick=()=>{sel=TODAY;const d=new Date();view={y:d.getFullYear(),m:d.getMonth()};render()};
+document.getElementById('addForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const subject=document.getElementById('subj').value.trim();const text=document.getElementById('content').value.trim();
+  const pages=document.getElementById('pages').value.trim().replace(/[〜～~ー－]/g,'-');
+  if(!text&&!pages){toast('勉強した内容かページを入力してください');return;}
+  state.items.push(migrate({id:uid(),date:sel,subject,text,pages,intervals:[...state.intervals]}));
+  save();document.getElementById('content').value='';document.getElementById('pages').value='';render();
+  toast('記録しました。復習を'+state.intervals.length+'回入れました');
+});
+document.getElementById('clearSample').onclick=()=>{state.items=state.items.filter(i=>!i.sample);save();render();toast('サンプルを消しました')};
+document.getElementById('saveIvl').onclick=()=>{
+  const v=document.getElementById('ivlInput').value.split(/[,、\s]+/).map(Number).filter(n=>Number.isInteger(n)&&n>0&&n<=365);
+  const u=[...new Set(v)].sort((a,b)=>a-b);
+  if(!u.length){toast('1〜365の数字をカンマ区切りで入力してください');return;}
+  state.intervals=u;save();render();toast('間隔を '+u.join('・')+' 日後にしました');
+};
+document.getElementById('exportBtn').onclick=()=>{
+  const ta=document.getElementById('backup');ta.value=JSON.stringify(state);
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value).then(()=>toast('コピーしました'),()=>{ta.select();toast('選択した文字をコピーしてください')})}else{ta.select();toast('選択した文字をコピーしてください')}
+};
+document.getElementById('importBtn').onclick=e=>{
+  const b=e.currentTarget;let s;
+  try{s=JSON.parse(document.getElementById('backup').value);if(!s||!Array.isArray(s.items)||!Array.isArray(s.intervals))throw 0;}catch(err){toast('貼り付けた内容が読めません');return;}
+  if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='今の記録を上書きして読み込む';setTimeout(()=>{b.dataset.arm='';b.textContent='読み込む'},4000);return;}
+  s.items.forEach(migrate);state=s;save();b.dataset.arm='';b.textContent='読み込む';render();toast('読み込みました');
+};
+render();
+})();
+</script>
+
+</body>
+</html>
